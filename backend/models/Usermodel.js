@@ -16,7 +16,20 @@ const UserSchema = new mongoose.Schema({
   history:[],
   friends:[],
   calenderEvents:[],
-  transactions:[],
+  transactions:[{
+    receiver:String,
+    message:String,
+    amount: Number,
+    category: String,
+    bank: String,
+    rawMessage: String,
+    timestamp:Date,
+    location: {
+      latitude: Number,
+      longitude: Number,
+      accuracy: Number
+    }
+  }],
   notifications:[{
     sender:String,
     message:String,

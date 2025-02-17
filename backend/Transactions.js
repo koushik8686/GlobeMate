@@ -2,6 +2,13 @@ import express from 'express';
 import Notification from './models/Notification.js';
 import Transaction from './models/Transaction.js';
 import User from './models/Usermodel.js'; // Added User model import
+import Usermodel from './models/Usermodel.js';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY
+});
 
 const router = express.Router();
 const messages = [];
@@ -68,51 +75,81 @@ router.get("/transactions/:userId", async (req, res) => {
 // **SMS Routes**
 router.post("/api/sms", async (req, res) => {
   try {
-    console.log('Received SMS payload:', req.body);
-    
-    const { 
-      email, 
-      message, 
-      sender, 
-      timestamp, 
-      location 
-    } = req.body;
+    console.log(req.body);
+    const { userId, message, sender, timestamp, location } = req.body;
+    if (!userId || !message) return res.status(400).json({ error: "Missing required fields" });
 
-    // Validate required fields
-    if (!email || !message) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+    const user = await Usermodel.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Find the user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Prepare notification object
-    const notification = {
+    user.notifications.push({
       sender: sender || 'Unknown',
-      message: message,
-      timestamp: timestamp ? new Date(timestamp) : new Date(),
-      location: location 
-        ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            accuracy: location.accuracy
-          }
-        : null
-    };
-
-    // Add notification to user's notifications
-    user.notifications.push(notification);
-
-    // Save the updated user document
-    await user.save();
-
-    res.status(200).json({ 
-      message: "SMS received and saved successfully",
-      notificationId: user.notifications[user.notifications.length - 1]._id
+      message,
+      timestamp: new Date(timestamp || Date.now()),
+      location: location || null
     });
+    console.log('Notification added:', user.notifications);
+
+    try {
+      const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": process.env.SITE_URL || "https://globemate.com",
+          "X-Title": process.env.SITE_NAME || "GlobeMate",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "deepseek/deepseek-r1-distill-llama-70b:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a financial SMS parser. Analyze the following SMS and determine if it's a transaction. If it is, return a JSON with 'receiver' and 'amount'. If not, return an empty object."
+            },
+            {
+              "role": "user",
+              "content": `Analyze this SMS for transaction details: ${message}`
+            }
+          ]
+        })
+      });
+
+      const responseData = await openRouterResponse.json();
+      const responseContent = responseData.choices?.[0]?.message?.content;
+      console.log('OpenRouter Response:', responseContent);
+
+      if (responseContent) {
+        try {
+          // Extract JSON content using regex
+          const jsonMatch = responseContent.match(/\{.*\}/s);
+          if (jsonMatch) {
+            const transactionDetails = JSON.parse(jsonMatch[0]);
+            console.log('Parsed Transaction Details:', transactionDetails);
+            
+            if (transactionDetails.amount) {
+              user.transactions.push({
+                receiver: transactionDetails.receiver || 'Unknown',
+                message,
+                amount: transactionDetails.amount,
+                rawMessage: message,
+                timestamp: new Date(timestamp || Date.now()),
+                location: location || null
+              });
+            }
+          } else {
+            console.error('Error: No JSON found in OpenRouter response');
+          }
+        } catch (parseError) {
+          console.error('Error parsing transaction details:', parseError);
+        }
+      }
+      
+    } catch (aiError) {
+      console.error('OpenRouter API error:', aiError);
+    }
+
+    await user.save();
+    res.status(200).json({ message: "SMS processed and saved successfully" });
   } catch (error) {
     console.error('Error processing SMS:', error);
     res.status(500).json({ error: "Internal server error" });

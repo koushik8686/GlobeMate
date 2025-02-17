@@ -451,58 +451,114 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SMS Monitor'),
+        title: const Text('SMS Monitor',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.teal,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!_isLoggedIn) ...[
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Enter your email',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: _sendOtp,
-                child: const Text('Send OTP'),
-              ),
-              if (_isEmailSent) ...[
-                TextField(
-                  controller: _otpController,
-                  decoration: const InputDecoration(
-                    labelText: 'Enter OTP',
-                    border: OutlineInputBorder(),
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Enter your email',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          prefixIcon: const Icon(Icons.email),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 15),
+                      ElevatedButton.icon(
+                        onPressed: _sendOtp,
+                        icon: const Icon(Icons.send),
+                        label: const Text('Send OTP'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      if (_isEmailSent) ...[
+                        const SizedBox(height: 15),
+                        TextField(
+                          controller: _otpController,
+                          decoration: InputDecoration(
+                            labelText: 'Enter OTP',
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            prefixIcon: const Icon(Icons.lock),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 15),
+                        ElevatedButton.icon(
+                          onPressed: _verifyOtp,
+                          icon: const Icon(Icons.verified),
+                          label: const Text('Verify OTP'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: _verifyOtp,
-                  child: const Text('Verify OTP'),
-                ),
-              ],
+              ),
             ] else ...[
               ListTile(
-                title: Text('Signed in as: $_userEmail'),
+                tileColor: Colors.grey.shade200,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
+                title: Text('Signed in as: $_userEmail',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 trailing: IconButton(
-                  icon: const Icon(Icons.logout),
+                  icon: const Icon(Icons.logout, color: Colors.red),
                   onPressed: _logout,
                 ),
               ),
             ],
-            Text('SMS Status: $_easySmsReceiverStatus',
-                style: Theme.of(context).textTheme.titleMedium),
-            Text('Location Status: $_locationStatus',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            Text('Latest SMS: $_message',
-                style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 20),
+            Card(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15)),
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SMS Status: $_easySmsReceiverStatus',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    Text('Location Status: $_locationStatus',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    Text('Latest SMS:',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    Text('$_message',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -511,11 +567,23 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
                   onPressed: startSmsReceiver,
                   icon: const Icon(Icons.play_arrow),
                   label: const Text("Start Monitoring"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
                 ElevatedButton.icon(
                   onPressed: stopSmsReceiver,
                   icon: const Icon(Icons.stop),
                   label: const Text("Stop Monitoring"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ],
             ),
