@@ -15,7 +15,7 @@ import {
   MessageSquare,
   Share2
 } from 'lucide-react';
-import { api, User } from '../services/api.ts';
+import { api, User } from '../services/api';
 
 export default function PeoplePage() {
   const [users, setUsers] = useState<User[]>([]);

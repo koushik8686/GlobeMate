@@ -146,7 +146,7 @@ const mockGroupTrips: GroupTrip[] = [
 ];
 
 // API Services
- export const api = {
+export const api = {
   getAllUsers: () => Promise.resolve(mockUsers),
   getUsers: () => Promise.resolve(mockUsers),
   getUserProfile: (userId: string) => Promise.resolve(mockUsers.find(u => u.id === userId) || null),

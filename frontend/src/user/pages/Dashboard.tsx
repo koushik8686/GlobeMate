@@ -19,7 +19,7 @@ import {
   Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {api} from '../services/api.ts';
+import { api } from '../services/api';
 
 function WeatherCard({ city, temp, condition, icon: Icon }: { city: string, temp: number, condition: string, icon: any }) {
   return (

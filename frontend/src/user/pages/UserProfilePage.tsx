@@ -21,7 +21,7 @@ import {
   Award,
   Send
 } from 'lucide-react';
-import { api, UserProfile } from '../services/api.ts';
+import { api, UserProfile } from '../services/api';
 
 export default function UserProfilePage() {
   const { userId } = useParams();

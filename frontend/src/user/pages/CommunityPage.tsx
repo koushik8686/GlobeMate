@@ -18,7 +18,7 @@ import {
   CloudSun,
   Volume2
 } from 'lucide-react';
-import { api, User, TravelChallenge, GroupTrip } from '../services/api.ts';
+import { api, User, TravelChallenge, GroupTrip } from '../services/api';
 
 export default function CommunityPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

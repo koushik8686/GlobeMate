@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Link, useLocation , Outlet } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   Search, 
   Bell, 
   User,
+  Home,
   Compass,
   Calendar,
   Package,
+  Map,
   PieChart,
   Menu,
   X,
@@ -27,7 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => location.pathname === path;
 
   const navigationItems = [
-    { path: '/user', icon: User, label: 'User' },
+    { path: '/user/', icon: Home, label: 'Dashboard' },
     { path: '/user/explore', icon: Compass, label: 'Explore' },
     { path: '/user/calendar', icon: Calendar, label: 'Trip Planner' },
     { path: '/user/packages', icon: Package, label: 'Packages' },
@@ -44,7 +46,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-   <Outlet> 
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
       <nav className="bg-white shadow-sm fixed w-full top-0 z-50">
@@ -224,6 +225,5 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </motion.div>
       </main>
     </div>
-    </Outlet>
   );
 }
