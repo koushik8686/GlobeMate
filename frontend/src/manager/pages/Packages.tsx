@@ -147,7 +147,7 @@ export default function Packages() {
         {tourPackages.map((pkg) => (
           <Link
             key={pkg.id}
-            to={`/packages/${pkg.id}`}
+            to={`/manager/packages/${pkg.id}`}
             className="group bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300"
           >
             <div className="aspect-video relative">
@@ -215,4 +215,4 @@ export default function Packages() {
       </div>
     </div>
   );
-}
+}   

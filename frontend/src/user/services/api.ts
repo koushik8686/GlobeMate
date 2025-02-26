@@ -21,6 +21,25 @@ export interface User {
   messages?: Message[];
 }
 
+export interface CurrentTrip {
+  id: string;
+  title: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  budget: number;
+  spentAmount: number;
+  progress: number;
+  itinerary: ItineraryItem[];
+}
+
+interface ItineraryItem {
+  id: string;
+  time: string;
+  activity: string;
+  status: 'completed' | 'in-progress' | 'upcoming';
+}
+
 interface Message {
   id: string;
   text: string;
@@ -45,6 +64,38 @@ export interface GroupTrip {
   status: 'Upcoming' | 'In Progress';
   members: User[];
 }
+
+// Mock Current Trip Data
+const mockCurrentTrip: CurrentTrip = {
+  id: '1',
+  title: 'Tokyo Explorer',
+  location: 'Tokyo, Japan',
+  startDate: '2024-03-10',
+  endDate: '2024-03-20',
+  budget: 3000,
+  spentAmount: 1250,
+  progress: 65,
+  itinerary: [
+    {
+      id: '1',
+      time: '9:00 AM',
+      activity: 'Tsukiji Fish Market Tour',
+      status: 'completed'
+    },
+    {
+      id: '2',
+      time: '2:00 PM',
+      activity: 'Sensoji Temple Visit',
+      status: 'in-progress'
+    },
+    {
+      id: '3',
+      time: '7:00 PM',
+      activity: 'Shibuya Crossing & Dinner',
+      status: 'upcoming'
+    }
+  ]
+};
 
 // Mock Users Data
 const mockUsers: User[] = [
@@ -147,6 +198,7 @@ const mockGroupTrips: GroupTrip[] = [
 
 // API Services
 export const api = {
+  // Existing methods
   getAllUsers: () => Promise.resolve(mockUsers),
   getUsers: () => Promise.resolve(mockUsers),
   getUserProfile: (userId: string) => Promise.resolve(mockUsers.find(u => u.id === userId) || null),
@@ -154,6 +206,47 @@ export const api = {
   getCurrentUser: () => Promise.resolve(mockUsers[0]),
   getChallenges: () => Promise.resolve(mockChallenges),
   getGroupTrips: () => Promise.resolve(mockGroupTrips),
+  
+  // New methods for current trip
+  getCurrentTrip: () => Promise.resolve(mockCurrentTrip),
+  
+  createNewTrip: (tripData: Omit<CurrentTrip, 'id' | 'spentAmount' | 'progress' | 'itinerary'>) => {
+    const newTrip: CurrentTrip = {
+      id: Math.random().toString(),
+      ...tripData,
+      spentAmount: 0,
+      progress: 0,
+      itinerary: []
+    };
+    return Promise.resolve(newTrip);
+  },
+  
+  updateTripProgress: (tripId: string, progress: number) => {
+    return Promise.resolve({ success: true });
+  },
+  
+  addItineraryItem: (tripId: string, item: Omit<ItineraryItem, 'id' | 'status'>) => {
+    const newItem: ItineraryItem = {
+      id: Math.random().toString(),
+      ...item,
+      status: 'upcoming'
+    };
+    return Promise.resolve(newItem);
+  },
+  
+  updateItineraryItemStatus: (tripId: string, itemId: string, status: ItineraryItem['status']) => {
+    return Promise.resolve({ success: true });
+  },
+  
+  completeTrip: (tripId: string) => {
+    return Promise.resolve({ success: true });
+  },
+  
+  reportIssue: (tripId: string, issue: string) => {
+    return Promise.resolve({ success: true });
+  },
+
+  // Existing methods
   sendMessage: (userId: string, message: string) => {
     const newMessage = {
       id: Math.random().toString(),
@@ -163,6 +256,7 @@ export const api = {
     };
     return Promise.resolve(newMessage);
   },
+  
   searchLocations: (query: string) => Promise.resolve([
     {
       id: '1',
@@ -180,6 +274,7 @@ export const api = {
     place.name.toLowerCase().includes(query.toLowerCase()) ||
     place.address.toLowerCase().includes(query.toLowerCase())
   )),
+  
   getWeatherUpdates: () => Promise.resolve({
     temperature: 22,
     condition: 'Sunny',
