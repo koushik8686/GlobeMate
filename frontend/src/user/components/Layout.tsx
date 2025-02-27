@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Bell, 
@@ -18,20 +18,64 @@ import {
   Trophy,
   MessageSquare,
   Settings,
-  LogOut
+  LogOut,
+  Loader
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Cookies from 'js-cookie';
+import { GOOGLE_AUTH_URL } from '../../constants/urls';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch('http://localhost:4000/auth/user', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('http://localhost:4000/auth/signout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      setUser(null);
+      setIsProfileOpen(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   const isActive = (path: string) => location.pathname === path;
 
   const navigationItems = [
-    { path: '/user/', icon: Home, label: 'Dashboard' },
+    { path: '/user', icon: Home, label: 'Dashboard' },
     { path: '/user/explore', icon: Compass, label: 'Explore' },
     { path: '/user/calendar', icon: Calendar, label: 'Trip Planner' },
     { path: '/user/packages', icon: Package, label: 'Packages' },
@@ -60,7 +104,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to="/" 
                 className="text-xl font-bold text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-2"
               >
-                <Compass className="w-6 h-6" />
+                <Compass className="w-5 h-5" />
                 <span className="bg-gradient-to-r from-emerald-600 to-blue-500 text-transparent bg-clip-text">
                   GeoGuide
                 </span>
@@ -86,14 +130,41 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       
              
               <div className="relative">
-                <button 
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-all duration-200"
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                >
-                  <User className="w-5 h-5" />
-                </button>
+                {isLoading ? (
+                  <div className="p-2">
+                    <Loader className="w-5 h-5 animate-spin text-emerald-600" />
+                  </div>
+                ) : user ? (
+                  <button 
+                    className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-all duration-200"
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  >
+                    {user.picture ? (
+                      <img 
+                        src={user.picture} 
+                        alt={user.name} 
+                        className="w-8 h-8 rounded-full"
+                      />
+                    ) : (
+                      <User className="w-5 h-5" />
+                    )}
+                  </button>
+                ) : (
+                  <a 
+                    href={GOOGLE_AUTH_URL}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-200 shadow-sm"
+                    onClick={() => setIsLoading(true)}
+                  >
+                    <img 
+                      src="https://www.google.com/favicon.ico" 
+                      alt="Google" 
+                      className="w-3 h-4"
+                    />
+                    Sign in with Google
+                  </a>
+                )}
                 <AnimatePresence>
-                  {isProfileOpen && (
+                  {isProfileOpen && user && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -101,8 +172,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border"
                     >
                       <div className="px-4 py-2 border-b">
-                        <div className="font-medium text-gray-800">Alex Johnson</div>
-                        <div className="text-sm text-gray-500">alex@example.com</div>
+                        <div className="font-medium text-gray-800">{user.name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
                       </div>
                       <div className="py-1">
                         <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
@@ -113,7 +184,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                           <Settings className="w-4 h-4" />
                           Settings
                         </button>
-                        <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                        <button 
+                          onClick={handleSignOut}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
                           <LogOut className="w-4 h-4" />
                           Sign out
                         </button>
@@ -149,26 +223,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
+                    className={`flex items-center gap-1 px-3 py-3 rounded-lg transition-all ${
                       isActive(item.path) 
                         ? 'text-emerald-600 bg-emerald-50' 
                         : 'text-gray-600 hover:text-emerald-600 hover:bg-gray-50'
                     }`}
                   >
-                    <item.icon className="w-5 h-5" />
-                    {item.label}
+                    <item.icon className="w-4 h-4" />
+                    {/* {item.label} */}
                   </Link>
                 ))}
-              </div>
-              <div className="mt-4 pt-4 border-t">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search destinations..."
-                    className="w-full px-4 py-2 pl-10 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                </div>
               </div>
             </div>
           </motion.div>

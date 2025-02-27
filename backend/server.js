@@ -5,16 +5,25 @@ import dotenv from "dotenv";
 import { google } from "googleapis";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import jwt from 'jsonwebtoken';
+import { generateToken } from './utils/jwt.js';
+import { authMiddleware } from './middleware/auth.js';
 import authRoutes from "./auth.js";
 import TransactionRoutes from "./Transactions.js";
 import User from "./models/Usermodel.js";
 import Notification from "./models/Notification.js";
 import Transaction from "./models/Transaction.js";
 import Event from "./models/CalenderEvents.js";
+
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ 
+  origin: "http://localhost:5173", 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev")); // Logs requests
@@ -22,6 +31,7 @@ app.use(morgan("dev")); // Logs requests
 // Mount authentication routes
 app.use('/auth', authRoutes);
 app.use('/', TransactionRoutes);
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB Connected"))
@@ -34,63 +44,107 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 
-const messages = [];
+// Get user info from Google
+const getGoogleUserInfo = async (accessToken) => {
+  try {
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const { data } = await oauth2.userinfo.get();
+    return data;
+  } catch (error) {
+    console.error("Error getting user info:", error);
+    return null;
+  }
+};
 
-// Existing routes
+// Get current user
+app.get("/auth/user", authMiddleware, async (req, res) => {
+  try {
+    res.json({ 
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        picture: req.user.profilePicture
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching user" });
+  }
+});
+
+// Google OAuth routes
 app.get("/auth/google", (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    scope: ["https://www.googleapis.com/auth/calendar.readonly", "email", "profile"],
+    scope: [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events",
+      "email",
+      "profile"
+    ],
+    prompt: 'consent'
   });
-  console.log("🔗 Redirecting user to Google OAuth...");
   res.redirect(authUrl);
 });
 
 app.get("/auth/callback", async (req, res) => {
   try {
+    console.log("OAuth Callback - Redirecting to: http://localhost:3000/user");
     const { code } = req.query;
     const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
+    
+    // Get user info from Google
+    const googleUser = await getGoogleUserInfo(tokens.access_token);
+    if (!googleUser) {
+      throw new Error('Failed to get user info from Google');
+    }
 
-    // **Get User Details**
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
-    const { data } = await oauth2.userinfo.get();
-    console.log("✅ User authenticated:", data);
-
-    // **Store User in MongoDB**
-    let user = await User.findOne({ googleId: data.id });
+    // Find or create user
+    let user = await User.findOne({ googleId: googleUser.id });
     if (!user) {
       user = new User({
-        googleId: data.id,
-        email: data.email,
-        name: data.name,
+        googleId: googleUser.id,
+        email: googleUser.email,
+        name: googleUser.name,
+        picture: googleUser.picture,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
       });
-      await user.save();
-      console.log("✅ New user saved to MongoDB:", user);
     } else {
-      console.log("🔄 User already exists in DB:", user);
+      user.accessToken = tokens.access_token;
+      if (tokens.refresh_token) {
+        user.refreshToken = tokens.refresh_token;
+      }
+      user.picture = googleUser.picture;
     }
+    await user.save();
 
-    res.cookie("auth_token", tokens.access_token, { httpOnly: true });
-    res.redirect("http://localhost:3000/dashboard");
+    // Generate JWT
+    const jwtToken = generateToken(user);
+
+    // Set JWT in cookie
+    res.cookie('jwt_token', jwtToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    console.log("OAuth Callback - JWT Token Generated:", jwtToken);
+    res.redirect("http://localhost:5173/user");
   } catch (error) {
     console.error("❌ Error in Google OAuth callback:", error);
-    res.status(500).json({ message: "Authentication Failed", error });
+    res.redirect("http://localhost:5173/auth/error");
   }
 });
 
-// **Fetch User's Google Calendar Events & Store in MongoDB**
-app.get("/calendar/events", async (req, res) => {
+// Calendar events
+app.get("/calendar/events", authMiddleware, async (req, res) => {
   try {
-    const accessToken = req.cookies.auth_token;
-    if (!accessToken) return res.status(401).json({ message: "Unauthorized" });
-
-    oauth2Client.setCredentials({ access_token: accessToken });
+    oauth2Client.setCredentials({ access_token: req.user.accessToken });
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-    // **Fetch events**
     const eventsResponse = await calendar.events.list({
       calendarId: "primary",
       timeMin: new Date().toISOString(),
@@ -100,35 +154,35 @@ app.get("/calendar/events", async (req, res) => {
     });
 
     const events = eventsResponse.data.items;
-    console.log("📅 Fetched Events from Google Calendar:", events);
-
-    // **Store Events in MongoDB**
+    
+    // Store events in MongoDB
     for (const event of events) {
-      const existingEvent = await Event.findOne({ eventId: event.id });
-      if (!existingEvent) {
-        const newEvent = new Event({
-          googleId: event.creator.email,
+      await Event.findOneAndUpdate(
+        { eventId: event.id },
+        {
+          googleId: req.user.googleId,
           eventId: event.id,
           summary: event.summary || "No Title",
           description: event.description || "No Description",
           location: event.location || "No Location",
           startTime: event.start.dateTime || event.start.date,
           endTime: event.end.dateTime || event.end.date,
-        });
-
-        await newEvent.save();
-        console.log("✅ Event saved to MongoDB:", newEvent);
-      } else {
-        console.log("🔄 Event already exists in DB:", existingEvent);
-      }
+        },
+        { upsert: true, new: true }
+      );
     }
 
     res.json(events);
   } catch (err) {
     console.error("❌ Error fetching events:", err);
-    res.status(500).json({ message: "Error fetching events", error: err });
+    res.status(500).json({ message: "Error fetching events", error: err.message });
   }
 });
 
+// Sign out
+app.post('/auth/signout', (req, res) => {
+  res.clearCookie('jwt_token');
+  res.json({ message: 'Signed out successfully' });
+});
 
 app.listen(4000, () => console.log("✅ Server running on http://localhost:4000"));
