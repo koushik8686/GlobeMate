@@ -47,6 +47,7 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
   String _authToken = "";
   bool _isLoggedIn = false;
   bool _isEmailSent = false;
+  String _backendUrl = "";
   Position? _currentPosition;
   String _locationStatus = "Not fetched";
 
@@ -63,6 +64,8 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _urlController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -287,14 +290,21 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
       _userEmail = prefs.getString('userEmail') ?? "";
       _userId = prefs.getString('userId') ?? "";
       _authToken = prefs.getString('authToken') ?? "";
+      _backendUrl = prefs.getString('backendUrl') ?? "";
       _isLoggedIn = _authToken.isNotEmpty;
     });
+    _urlController.text = _backendUrl;
   }
 
   Future<void> _sendOtp() async {
+    if (_backendUrl.isEmpty) {
+      _showSnackBar('Please set server URL first');
+      return;
+    }
+
     try {
       final response = await http.post(
-        Uri.parse('${Constants.backendUrl}/auth/send-otp'),
+        Uri.parse('$_backendUrl/auth/send-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _emailController.text.trim()}),
       );
@@ -312,9 +322,14 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
   }
 
   Future<void> _verifyOtp() async {
+    if (_backendUrl.isEmpty) {
+      _showSnackBar('Please set server URL first');
+      return;
+    }
+
     try {
       final response = await http.post(
-        Uri.parse('${Constants.backendUrl}/auth/verify-otp'),
+        Uri.parse('$_backendUrl/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _emailController.text.trim(),
@@ -365,14 +380,14 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
   }
 
   Future<void> _sendSmsToBackend(String? message, String? address) async {
-    if (message == null || !_isLoggedIn) return;
+    if (message == null || !_isLoggedIn || _backendUrl.isEmpty) return;
 
     try {
       final position = await _getCurrentLocation();
 
       final response = await http
           .post(
-            Uri.parse('${Constants.backendUrl}/api/sms'),
+            Uri.parse('$_backendUrl/api/sms'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $_authToken'
@@ -447,146 +462,189 @@ class _SMSListenerAppState extends State<SMSListenerApp> {
     setState(() => _easySmsReceiverStatus = "Stopped");
   }
 
+  Future<void> _saveBackendUrl() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('backendUrl', _urlController.text.trim());
+    setState(() => _backendUrl = _urlController.text.trim());
+    _showSnackBar('Server URL saved successfully');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SMS Monitor',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.teal,
-        centerTitle: true,
+        title: const Text('SMS Monitor'),
+        actions: [
+          if (_isLoggedIn)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: _logout,
+              tooltip: 'Logout',
+            )
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!_isLoggedIn) ...[
-              Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15)),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Server Configuration',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _urlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Backend URL',
+                          prefixIcon: Icon(Icons.link),
+                          hintText: 'https://your-server.com/api',
+                        ),
+                        keyboardType: TextInputType.url,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a server URL';
+                          }
+                          if (!value.startsWith('http')) {
+                            return 'Enter a valid URL';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.save),
+                          label: const Text('Save URL'),
+                          onPressed: _saveBackendUrl,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (_backendUrl.isNotEmpty && !_isLoggedIn) ...[
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
                       TextField(
                         controller: _emailController,
-                        decoration: InputDecoration(
-                          labelText: 'Enter your email',
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          prefixIcon: const Icon(Icons.email),
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email),
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      const SizedBox(height: 15),
-                      ElevatedButton.icon(
-                        onPressed: _sendOtp,
-                        icon: const Icon(Icons.send),
-                        label: const Text('Send OTP'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 16),
+                      if (!_isEmailSent)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.send),
+                          label: const Text('Send OTP'),
+                          onPressed: _sendOtp,
                         ),
-                      ),
                       if (_isEmailSent) ...[
-                        const SizedBox(height: 15),
                         TextField(
                           controller: _otpController,
-                          decoration: InputDecoration(
-                            labelText: 'Enter OTP',
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            prefixIcon: const Icon(Icons.lock),
+                          decoration: const InputDecoration(
+                            labelText: 'OTP Code',
+                            prefixIcon: Icon(Icons.lock_clock),
                           ),
                           keyboardType: TextInputType.number,
                         ),
-                        const SizedBox(height: 15),
-                        ElevatedButton.icon(
-                          onPressed: _verifyOtp,
-                          icon: const Icon(Icons.verified),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.verified_user),
                           label: const Text('Verify OTP'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
+                          onPressed: _verifyOtp,
                         ),
                       ],
                     ],
                   ),
                 ),
               ),
-            ] else ...[
-              ListTile(
-                tileColor: Colors.grey.shade200,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15)),
-                title: Text('Signed in as: $_userEmail',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.red),
-                  onPressed: _logout,
+            ],
+            if (_isLoggedIn) ...[
+              const SizedBox(height: 20),
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Service Status',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        leading: const Icon(Icons.sms),
+                        title: const Text('SMS Monitoring'),
+                        subtitle: Text(_easySmsReceiverStatus),
+                        trailing: Switch(
+                          value: _easySmsReceiverStatus == "Running",
+                          onChanged: (value) {
+                            value ? startSmsReceiver() : stopSmsReceiver();
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.location_on),
+                        title: const Text('Location Service'),
+                        subtitle: Text(_locationStatus),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Latest Message',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _message.isNotEmpty ? _message : 'No messages received',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
-            const SizedBox(height: 20),
-            Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15)),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('SMS Status: $_easySmsReceiverStatus',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text('Location Status: $_locationStatus',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 10),
-                    Text('Latest SMS:',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text('$_message',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: startSmsReceiver,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text("Start Monitoring"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: stopSmsReceiver,
-                  icon: const Icon(Icons.stop),
-                  label: const Text("Stop Monitoring"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),

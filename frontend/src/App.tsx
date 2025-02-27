@@ -17,6 +17,7 @@ import Profile from './manager/pages/Profile';
 import Chat from './manager/pages/Chat';
 import Sidebar from './manager/components/Sidebar.js';
 import Hotels from './manager/pages/Hotels';
+import HotelsPage from './user/pages/HotelsPage.js';
 function ManagerLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,6 +42,7 @@ function App() {
         <Route path="/user/community" element={<Layout><CommunityPage /></Layout>} />
         <Route path="/user/users" element={<Layout><UsersPage /></Layout>} />
         <Route path="/user/people" element={<Layout><PeoplePage /></Layout>} />
+        <Route path="/user/hotels" element={<Layout><HotelsPage /></Layout>} />
         <Route path="/user/people/:userId" element={<Layout><UserProfilePage /></Layout>} />
         <Route path="/manager" element={<ManagerLayout><ManagerDashboard /></ManagerLayout>} />
         <Route path="/manager/packages" element={<ManagerLayout><PackagesPage /></ManagerLayout>} />
