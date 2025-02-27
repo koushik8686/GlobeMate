@@ -18,6 +18,9 @@ import Chat from './manager/pages/Chat';
 import Sidebar from './manager/components/Sidebar.js';
 import Hotels from './manager/pages/Hotels';
 import HotelsPage from './user/pages/HotelsPage.js';
+import HotelDetailPage from './user/pages/HotelDetailPage.js';
+import PackageDetailPage from './user/pages/PackageDetail.js';
+import UserHistory from './user/pages/HistoryPage.js';
 function ManagerLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,12 +41,15 @@ function App() {
         <Route path="/user/explore" element={<Layout><ExplorePage /></Layout>} />
         <Route path="/user/calendar" element={<Layout><CalendarPage /></Layout>} />
         <Route path="/user/packages" element={<Layout><PackagesPage /></Layout>} />
+        <Route path='/user/packages/:id' element={<Layout><PackageDetailPage/> </Layout> } />
         <Route path="/user/analytics" element={<Layout><AnalyticsPage /></Layout>} />
         <Route path="/user/community" element={<Layout><CommunityPage /></Layout>} />
         <Route path="/user/users" element={<Layout><UsersPage /></Layout>} />
         <Route path="/user/people" element={<Layout><PeoplePage /></Layout>} />
         <Route path="/user/hotels" element={<Layout><HotelsPage /></Layout>} />
+        <Route path='/user/hotels/:id' element={<Layout><HotelDetailPage/> </Layout>} />
         <Route path="/user/people/:userId" element={<Layout><UserProfilePage /></Layout>} />
+        <Route path="/user/history" element={<Layout><UserHistory/> </Layout>} />
         <Route path="/manager" element={<ManagerLayout><ManagerDashboard /></ManagerLayout>} />
         <Route path="/manager/packages" element={<ManagerLayout><PackagesPage /></ManagerLayout>} />
         <Route path="/manager/packages/:id" element={<ManagerLayout><PackageDetail /></ManagerLayout>} />

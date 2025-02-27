@@ -6,6 +6,7 @@ import {
   User,
   Home,
   Compass,
+  History,
   Calendar,
   Package,
   Hotel,
@@ -35,6 +36,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: '/user/calendar', icon: Calendar, label: 'Trip Planner' },
     { path: '/user/packages', icon: Package, label: 'Packages' },
     {path: '/user/hotels', icon: Hotel, label: 'Hotel'},
+    {path: '/user/history', icon: History, label: 'History'},
     { path: '/user/analytics', icon: PieChart, label: 'Analytics' },
     { path: '/user/community', icon: Trophy, label: 'Community' },
     { path: '/user/users', icon: MessageSquare, label: 'Messages' },
@@ -81,51 +83,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="relative hidden md:block">
-                <input
-                  type="text"
-                  placeholder="Search destinations..."
-                  className="w-64 px-4 py-2 pl-10 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-200"
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-              <div className="relative">
-                <button 
-                  className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-all duration-200 relative"
-                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                >
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-                <AnimatePresence>
-                  {isNotificationsOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 border"
-                    >
-                      {notifications.map(notification => (
-                        <div
-                          key={notification.id}
-                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <h3 className="font-medium text-gray-800">{notification.title}</h3>
-                            <span className="text-xs text-gray-500">{notification.time}</span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                        </div>
-                      ))}
-                      <div className="border-t mt-2 pt-2 px-4">
-                        <button className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
-                          View all notifications
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+      
+             
               <div className="relative">
                 <button 
                   className="p-2 text-gray-600 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-all duration-200"
